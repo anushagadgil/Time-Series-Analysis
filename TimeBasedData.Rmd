@@ -1,0 +1,186 @@
+---
+title: "TimeBasedData"
+author: "Anusha Gadgil"
+date: "2023-11-07"
+output: html_document
+---
+##Importing the Dataset and Necessary Libraries
+```{r }
+library(tidyverse)
+library(dplyr)
+library(reshape2)
+library(gridExtra)
+library(ggplot2)
+```
+
+##Importing the Dataset
+
+```{r}
+WineDataset=read.csv("C:/Users/Anusha Gadgil/Desktop/wines_SPA (1).csv")
+WineDataset
+```
+
+```{r}
+library(tsibble)
+library(dplyr)
+
+# Assuming WineDataset is your data frame
+
+# Convert year to Date class
+#WineDataset$year <- as.Date(paste0(WineDataset$year))
+
+# Create tsibble
+#my_tsibble <- as_tsibble(WineDataset, key = "year")
+
+# Print the tsibble
+#print(my_tsibble)
+my_tsibble <- my_tsibble %>%
+  mutate(Time = as.Date(Time))
+
+```
+
+#Selecting and converting year column to timebased format
+```{r}
+WineDataset$year<-as.Date(as.character(WineDataset$year), format="%Y")
+WineDataset
+```
+#checking total types of wine
+
+```{r}
+total_types <- WineDataset %>%
+  summarise(total_types = n_distinct(type))
+total_types
+```
+
+#grouping together wine of same type and year and analysing price change
+```{r}
+library(dplyr)
+#converting year from int to date
+WineDataset$year <- as.Date(WineDataset$year)
+
+# Grouping together wines of the same type and calculating the average price
+grouped_data <- WineDataset %>%
+  group_by(type,year) %>%
+  summarise(average_price = mean(price, na.rm = TRUE))
+
+# Print the result
+print(grouped_data)
+
+```
+
+
+#Creating a Tsibble
+```{r}
+df_unique<- na.omit(grouped_data)
+#duplicates <- duplicated(grouped_data)
+#df_unique <- grouped_data[!duplicates, ]
+#df_unique
+df_unique
+```
+
+```{r}
+redundant <- duplicated(df_unique)
+
+print(redundant)
+
+```
+
+```{r}
+df_unique$year <- as.Date(df_unique$year, format = "%d-%m-%Y")
+df_unique
+```
+
+
+
+```{r}
+my_tsibble_no_na <- na.omit(my_tsibble)
+# Create tsibble
+my_tsibble <- tsibble(
+  Time = df_unique$year,
+  Type = df_unique$type,
+  Average_Price = df_unique$average_price,
+  key = c(Type)
+)
+# Print the tsibble
+print(my_tsibble)
+
+```
+
+
+#analysing price of Rioja White over time
+```{r}
+filtered_tibble<-filter(my_tsibble,Type=="Rioja White")
+
+ggplot(filtered_tibble, aes(x = Time, y = Average_Price)) +
+  geom_line() +
+  labs(title = "Total Sales over Time", x = "Time", y = "Price of Wine") +
+  theme_minimal()
+```
+
+#analysing price of Albarino over time
+```{r}
+filtered_tibble<-filter(my_tsibble,Type=="Albarino")
+
+ggplot(filtered_tibble, aes(x = Time, y = Average_Price)) +
+  geom_line() +
+  labs(title = "Total Sales over Time", x = "Time", y = "Price of Wine") +
+  theme_minimal()
+```
+#Analysing price of Montsant Red over time
+```{r}
+filtered_tibble<-filter(my_tsibble,Type=="Montsant Red")
+
+ggplot(filtered_tibble, aes(x = Time, y = Average_Price)) +
+  geom_line() +
+  labs(title = "Total Sales over Time", x = "Time", y = "Price of Wine") +
+  theme_minimal()
+
+```
+
+
+
+#All wine prices showed a downward trend over time
+
+```{r}
+trend_results <- my_tsibble %>%
+  group_by(Type) %>%
+  do(
+    model = lm(Average_Price ~ Time, data = .)
+  )
+
+# Extract coefficients (slope) from the linear models
+trend_results <- trend_results %>%
+  summarise(
+    Type = unique(Type),
+    Slope = coef(model)[2]  # Extract the slope (coefficient) for Time
+  )
+
+# Print the trend results
+print(trend_results)
+
+```
+```{r}
+
+summary(my_tsibble)
+
+
+```
+
+
+#every year the price of the wine is constantly decreasing. The trends are not that strong as the decrease in price is not that much.
+
+```{r}
+library(tsibble)
+library(dplyr)
+library(fable)
+df$Time <- as.Date(df$Time)
+my_tsibble <- tsibble(Time = df$Time, Type = df$Type, Average_Price = df$Average_Price)
+                                       
+                                       
+# Apply stl decomposition
+smoothed_data <- my_tsibble %>%
+  model(stl(Average_Price ~ season("year")))
+
+
+```
+
